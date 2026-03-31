@@ -25,7 +25,7 @@ export const Sidebar = () => {
           NEXA <span className="text-blue-600 ml-1">AI</span>
         </h1>
         <p className="text-[10px] text-slate-500 font-bold tracking-[0.2em] uppercase mt-1">
-          The Digital Curator
+          The Digital Assistant
         </p>
       </div>
 
