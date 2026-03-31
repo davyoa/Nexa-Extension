@@ -6,7 +6,7 @@ export const TopBar = () => {
   const { isRecording } = useTranscriptStore();
 
   return (
-    <header className="flex-shrink-0 h-20 border-b border-slate-200 bg-white flex items-center justify-between px-8 w-full shrink-0 relative z-10">
+    <header className="flex-shrink-0 h-15 border-b border-slate-200 bg-white flex items-center justify-between px-8 w-full shrink-0 relative z-10">
       <div className="flex items-center space-x-4 text-slate-800 font-bold tracking-tight text-xl">
          <span>NEXA</span>
          {isRecording && (
