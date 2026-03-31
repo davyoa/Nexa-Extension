@@ -1,9 +1,9 @@
-import { Ear, User } from 'lucide-react';
+import { User } from 'lucide-react';
 import { useTranscriptStore } from '../store/useTranscriptStore';
 import { AudioModeSwitch } from './AudioModeSwitch';
 
 export const TopBar = () => {
-  const { isRecording, toggleListeningUi, isListeningUiOpen } = useTranscriptStore();
+  const { isRecording} = useTranscriptStore();
 
   return (
     <header className="shrink-0 h-16 border-b border-slate-200/60 bg-white/80 backdrop-blur-md flex items-center justify-between px-6 w-full relative z-50">
