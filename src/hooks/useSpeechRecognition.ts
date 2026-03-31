@@ -1,94 +1,200 @@
 import { useEffect, useRef } from 'react';
 import { useTranscriptStore } from '../store/useTranscriptStore';
 
-export const useSpeechRecognition = () => {
-  const { isRecording, setInterimText, appendTranscript } = useTranscriptStore();
-  const recognitionRef = useRef<any>(null);
+interface SpeechRecognitionWithStream extends SpeechRecognition {
+  audioStream?: MediaStream;
+}
 
-  useEffect(() => {
-    if (!('webkitSpeechRecognition' in window)) {
-      console.warn('Speech recognition is not supported in this browser.');
+function createRecognition(
+  audioStream?: MediaStream
+): SpeechRecognitionWithStream | null {
+  const SpeechRecognition =
+    (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    console.warn('Speech recognition is not supported in this browser.');
+    return null;
+  }
+
+  const recognition: SpeechRecognitionWithStream = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+
+  if (audioStream) {
+    recognition.audioStream = audioStream;
+  }
+
+  return recognition;
+}
+
+function setupRecognitionHandlers(
+  recognition: SpeechRecognitionWithStream,
+  onError: (err: string) => void
+) {
+  const { setInterimText, appendTranscript } = useTranscriptStore.getState();
+
+  recognition.onresult = (event: SpeechRecognitionEvent) => {
+    let interimTranscript = '';
+    let finalTranscript = '';
+
+    for (let i = event.resultIndex; i < event.results.length; ++i) {
+      if (event.results[i].isFinal) {
+        finalTranscript += event.results[i][0].transcript;
+      } else {
+        interimTranscript += event.results[i][0].transcript;
+      }
+    }
+
+    if (interimTranscript) {
+      setInterimText(interimTranscript);
+    }
+
+    if (finalTranscript.trim()) {
+      appendTranscript(finalTranscript.trim());
+
+      if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+        try {
+          chrome.runtime.sendMessage(
+            { type: 'PROCESS_TEXT', text: finalTranscript.trim() },
+            () => {
+              if (chrome.runtime.lastError) {
+                // swallow
+              }
+            }
+          );
+        } catch {
+          // context invalidated
+        }
+      }
+    }
+  };
+
+  recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+    console.error('Speech recognition error:', event.error);
+    if (event.error === 'not-allowed') {
+      useTranscriptStore.getState().toggleRecording();
+    }
+    onError(event.error);
+  };
+
+  recognition.onend = () => {
+    const { isRecording } = useTranscriptStore.getState();
+    if (isRecording) {
+      try {
+        recognition.start();
+      } catch {
+        // already started
+      }
+    }
+  };
+}
+
+async function getCurrentTabId(): Promise<number | null> {
+  return new Promise((resolve) => {
+    if (typeof chrome === 'undefined' || !chrome.tabs) {
+      resolve(null);
+      return;
+    }
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      resolve(tabs[0]?.id ?? null);
+    });
+  });
+}
+
+async function captureTabAudio(): Promise<MediaStream | null> {
+  const tabId = await getCurrentTabId();
+  if (!tabId) return null;
+
+  return new Promise((resolve) => {
+    chrome.tabCapture.capture({ audio: true, video: false }, (stream) => {
+      if (chrome.runtime.lastError || !stream) {
+        console.error('Tab capture failed:', chrome.runtime.lastError?.message);
+        resolve(null);
+        return;
+      }
+      resolve(stream);
+    });
+  });
+}
+
+export const useSpeechRecognition = () => {
+  const { isRecording, audioSource } = useTranscriptStore();
+  const recognitionRef = useRef<SpeechRecognitionWithStream | null>(null);
+  const tabStreamRef = useRef<MediaStream | null>(null);
+
+  const cleanup = () => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.stop();
+      } catch {
+        // already stopped
+      }
+      recognitionRef.current = null;
+    }
+    if (tabStreamRef.current) {
+      tabStreamRef.current.getTracks().forEach((t) => t.stop());
+      tabStreamRef.current = null;
+    }
+  };
+
+  const startAmbient = () => {
+    cleanup();
+    const recognition = createRecognition();
+    if (!recognition) return;
+
+    setupRecognitionHandlers(recognition, () => {});
+    recognitionRef.current = recognition;
+
+    try {
+      recognition.start();
+    } catch {
+      // already started
+    }
+  };
+
+  const startTab = async () => {
+    cleanup();
+
+    const stream = await captureTabAudio();
+    if (!stream) {
+      console.error('Could not capture tab audio');
+      useTranscriptStore.getState().toggleRecording();
       return;
     }
 
-    if (!recognitionRef.current) {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
+    tabStreamRef.current = stream;
 
-      recognition.onresult = (event: any) => {
-        let interimTranscript = '';
-        let finalTranscript = '';
+    const recognition = createRecognition(stream);
+    if (!recognition) return;
 
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
-          }
-        }
+    setupRecognitionHandlers(recognition, () => {});
+    recognitionRef.current = recognition;
 
-        if (interimTranscript) {
-          setInterimText(interimTranscript);
-        }
-
-        if (finalTranscript.trim()) {
-           appendTranscript(finalTranscript.trim());
-           
-           // Mocking sending chunk to service worker
-           if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-             try {
-                chrome.runtime.sendMessage({ type: 'PROCESS_TEXT', text: finalTranscript.trim() }, () => {
-                   // Ignore response as per mock isolation instruction
-                   if (chrome.runtime.lastError) {
-                      // Silently swallow in mock mode
-                   }
-                });
-             } catch (e) {
-               // Ignore context invalidated
-             }
-           }
-        }
-      };
-
-      recognition.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error);
-        if (event.error === 'not-allowed') {
-            useTranscriptStore.getState().toggleRecording();
-        }
-      };
-
-      // Restart automatically if still supposed to be recording
-      recognition.onend = () => {
-        if (useTranscriptStore.getState().isRecording) {
-            try {
-              recognition.start();
-            } catch (e) {
-               // already started
-            }
-        }
-      };
-
-      recognitionRef.current = recognition;
+    try {
+      recognition.start();
+    } catch {
+      // already started
     }
-  }, []);
+  };
 
   useEffect(() => {
-    if (!recognitionRef.current) return;
-
-    if (isRecording) {
-      try {
-        recognitionRef.current.start();
-      } catch (e) {
-        console.log('Recognition already started');
-      }
-    } else {
-      try {
-        recognitionRef.current.stop();
-      } catch (e) {}
+    if (!isRecording) {
+      cleanup();
+      return;
     }
-  }, [isRecording]);
+
+    if (audioSource === 'ambient') {
+      startAmbient();
+    } else {
+      startTab();
+    }
+
+    return () => {
+      cleanup();
+    };
+  }, [isRecording, audioSource]);
 };

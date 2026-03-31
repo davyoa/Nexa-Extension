@@ -1,6 +1,11 @@
+<<<<<<< HEAD
 
 import { Monitor, Mic, User, Ear } from 'lucide-react';
+=======
+import { Settings, User } from 'lucide-react';
+>>>>>>> 4654733e9a4d3e30a03aeaf6ee839b3f49c9400a
 import { useTranscriptStore } from '../store/useTranscriptStore';
+import { AudioModeSwitch } from './AudioModeSwitch';
 
 export const TopBar = () => {
   const { isRecording, audioSource, setAudioSource, toggleListeningUi, isListeningUiOpen } = useTranscriptStore();
@@ -17,6 +22,7 @@ export const TopBar = () => {
         )}
       </div>
 
+<<<<<<< HEAD
       <div className="flex items-center space-x-5">
         
         {/* Source Toggle Pill */}
@@ -49,6 +55,19 @@ export const TopBar = () => {
         {/* Avatar */}
         <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-slate-200 to-slate-100 border border-slate-200 shadow-sm overflow-hidden flex items-center justify-center">
             <User className="w-4 h-4 text-slate-400" />
+=======
+      <div className="flex items-center space-x-6">
+        <AudioModeSwitch />
+
+        <div className="flex items-center space-x-4">
+          <button className="text-slate-400 hover:text-slate-600 transition-colors">
+            <Settings className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="w-10 h-10 rounded-full bg-slate-200 border-2 border-white shadow-sm overflow-hidden flex items-center justify-center">
+            <User className="w-6 h-6 text-slate-400" />
+>>>>>>> 4654733e9a4d3e30a03aeaf6ee839b3f49c9400a
         </div>
       </div>
     </header>
