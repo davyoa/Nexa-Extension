@@ -1,6 +1,6 @@
-
-import { Mic, Settings, User } from 'lucide-react';
+import { Settings, User } from 'lucide-react';
 import { useTranscriptStore } from '../store/useTranscriptStore';
+import { AudioModeSwitch } from './AudioModeSwitch';
 
 export const TopBar = () => {
   const { isRecording } = useTranscriptStore();
@@ -18,19 +18,15 @@ export const TopBar = () => {
       </div>
 
       <div className="flex items-center space-x-6">
-        {/* Right side controls */}
+        <AudioModeSwitch />
+
         <div className="flex items-center space-x-4">
-          <button className="text-slate-400 hover:text-slate-600 transition-colors">
-            <Mic className="w-5 h-5" />
-          </button>
           <button className="text-slate-400 hover:text-slate-600 transition-colors">
             <Settings className="w-5 h-5" />
           </button>
         </div>
-        
-        {/* Avatar */}
+
         <div className="w-10 h-10 rounded-full bg-slate-200 border-2 border-white shadow-sm overflow-hidden flex items-center justify-center">
-            {/* Using a placeholder SVG or generic User icon for now since we don't have assets */}
             <User className="w-6 h-6 text-slate-400" />
         </div>
       </div>
