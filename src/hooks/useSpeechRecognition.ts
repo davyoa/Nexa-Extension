@@ -52,21 +52,6 @@ function setupRecognitionHandlers(
 
     if (finalTranscript.trim()) {
       appendTranscript(finalTranscript.trim());
-
-      if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
-        try {
-          chrome.runtime.sendMessage(
-            { type: 'PROCESS_TEXT', text: finalTranscript.trim() },
-            () => {
-              if (chrome.runtime.lastError) {
-                // swallow
-              }
-            }
-          );
-        } catch {
-          // context invalidated
-        }
-      }
     }
   };
 
